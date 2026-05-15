@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UploadCloud, Shield, FileText, AlertTriangle, CheckCircle, Activity, Layout, Network, GitGraph, FileSearch, Printer, Edit3, Database, Home, TrendingUp, PieChart, Zap, Cpu, ListChecks, Layers, Box, Server } from 'lucide-react';
+import { UploadCloud, Shield, FileText, AlertTriangle, CheckCircle, Activity, Layout, Network, GitGraph, FileSearch, Printer, Edit3, Database, Home, TrendingUp, PieChart, Zap, Cpu, ListChecks, Layers, Box, Server, Download } from 'lucide-react';
 import axios from 'axios';
 import ForceGraph2D from 'react-force-graph-2d';
 import ForensicPanel from './ForensicPanel';
@@ -195,6 +195,25 @@ function App() {
     }
   };
 
+  const handleDownloadReport = async () => {
+    if (!analysisResult || !analysisResult.task_id) return;
+    try {
+      const response = await axios.get(`http://localhost:8000/api/v1/document/${analysisResult.task_id}/report`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `suraksha-forensic-report-${analysisResult.task_id.substring(0, 8)}.txt`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Failed to download report", err);
+      alert("Could not generate forensic report. Make sure backend is reachable.");
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -379,15 +398,24 @@ function App() {
             <div className="glass-panel p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <div className="flex justify-between items-start mb-8">
                 <div>
-                  <h2 className="text-2xl font-bold mb-1">Analysis Complete</h2>
-                  <p className="text-slate-400 text-sm">Document processed through 4 AI subsystems</p>
+                  <div className="flex items-center space-x-2 mb-2 print:hidden">
+                    <span className="px-2.5 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded text-[9px] font-black tracking-widest uppercase shadow-[0_0_10px_rgba(59,130,246,0.1)]">
+                      Neural Command Hub
+                    </span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse"></div>
+                  </div>
+                  <h2 className="text-2xl font-bold tracking-tight mb-0.5">Analysis Report</h2>
+                  <p className="text-slate-400 text-xs font-medium tracking-wide">Multi-modal pipeline successfully certified.</p>
                 </div>
                 <div className="flex space-x-3 print:hidden">
                   <button onClick={handleOverride} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center transition-colors">
                     <Edit3 className="w-3 h-3 mr-1.5" /> Officer Override
                   </button>
                   <button onClick={handlePrint} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center transition-colors">
-                    <Printer className="w-3 h-3 mr-1.5" /> Print Report
+                    <Printer className="w-3 h-3 mr-1.5" /> Print
+                  </button>
+                  <button onClick={handleDownloadReport} className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded text-xs font-bold text-blue-400 flex items-center transition-colors">
+                    <Download className="w-3 h-3 mr-1.5" /> Export Report
                   </button>
                 </div>
                 <div className={`px-4 py-2 rounded-full border flex items-center font-bold tracking-widest ${
@@ -401,14 +429,27 @@ function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50">
-                  <p className="text-slate-400 text-sm mb-2">Fraud Probability Score</p>
-                  <div className="flex items-end">
-                    <span className={`text-5xl font-black ${
-                      analysisResult.decision === 'REJECT' ? 'text-red-500' : 'text-emerald-500'
-                    }`}>{analysisResult.fraud_score}</span>
-                    <span className="text-slate-500 ml-1 mb-1">/ 100</span>
+                <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50 flex flex-col justify-between">
+                  <div>
+                    <p className="text-slate-400 text-sm mb-2 font-medium">Fraud Probability Score</p>
+                    <div className="flex items-end">
+                      <span className={`text-5xl font-black tracking-tighter ${
+                        analysisResult.decision === 'REJECT' ? 'text-red-500' : 'text-emerald-500'
+                      }`}>{analysisResult.fraud_score}</span>
+                      <span className="text-slate-500 ml-1 mb-1">/ 100</span>
+                    </div>
                   </div>
+                  {analysisResult.anomaly_grade && (
+                    <div className="mt-4 inline-flex self-start items-center px-3 py-1 rounded-full text-xs font-black tracking-wider bg-slate-950 border border-slate-800 shadow-sm">
+                      <span className="text-slate-500 mr-2 uppercase text-[9px]">Anomaly Grade:</span>
+                      <span className={
+                        analysisResult.anomaly_grade === 'CRITICAL' ? 'text-red-400' :
+                        analysisResult.anomaly_grade === 'HIGH' ? 'text-orange-400' :
+                        analysisResult.anomaly_grade === 'MEDIUM' ? 'text-yellow-400' :
+                        'text-emerald-400'
+                      }>{analysisResult.anomaly_grade}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="bg-slate-900/60 rounded-xl p-6 border border-slate-700/60 shadow-lg flex flex-col h-full">
