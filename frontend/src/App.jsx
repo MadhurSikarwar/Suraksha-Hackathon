@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UploadCloud, Shield, FileText, AlertTriangle, CheckCircle, Activity, Layout, Network, GitGraph, FileSearch, Printer, Edit3, Database, Home, TrendingUp, PieChart, Zap } from 'lucide-react';
+import { UploadCloud, Shield, FileText, AlertTriangle, CheckCircle, Activity, Layout, Network, GitGraph, FileSearch, Printer, Edit3, Database, Home, TrendingUp, PieChart, Zap, Cpu, ListChecks, Layers, Box, Server } from 'lucide-react';
 import axios from 'axios';
 import ForceGraph2D from 'react-force-graph-2d';
 import ForensicPanel from './ForensicPanel';
@@ -200,32 +200,104 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-suraksha-dark text-slate-100 p-8 font-sans print:bg-white print:text-black">
-      <header className="flex items-center justify-between mb-10 pb-4 border-b border-slate-700 print:hidden">
-        <div className="flex items-center">
-          <Shield className="w-10 h-10 text-suraksha-accent mr-4" />
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-              Suraksha Intelligence
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">AI-Powered Document Fraud Detection Pipeline</p>
+    <div className="min-h-screen bg-suraksha-dark text-slate-100 font-sans print:bg-white print:text-black flex flex-col">
+      {/* Premium Sticky Glassmorphic Navbar */}
+      <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-[#030712]/80 border-b border-slate-800/60 shadow-[0_4px_30px_rgba(0,0,0,0.2)] transition-all duration-300 print:hidden">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
+          
+          {/* Brand Logo & Identity Area */}
+          <div className="flex items-center cursor-pointer select-none group" onClick={() => setMainView('dashboard')}>
+            <div className="relative">
+              <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-300"></div>
+              <div className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-slate-900 border border-slate-700/50 group-hover:border-blue-500/50 transition duration-300">
+                <Shield className="w-6 h-6 text-blue-400 group-hover:text-blue-300" />
+              </div>
+            </div>
+            <div className="ml-4">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent flex items-center">
+                SURAKSHA
+                <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-black tracking-widest uppercase bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                  PRO
+                </span>
+              </h1>
+              <p className="text-slate-500 text-[10px] md:text-xs tracking-wide uppercase font-medium group-hover:text-slate-400 transition-colors">
+                Forensic Document Intelligence
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex space-x-3">
-          <button onClick={handleReset} className="flex items-center px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold transition-colors print:hidden">
-            Clear Demo
-          </button>
-          <button onClick={() => setMainView('dashboard')} className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${mainView === 'dashboard' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Home className="w-4 h-4 mr-2" /> Dashboard
-          </button>
-          <button onClick={() => setMainView('casemanagement')} className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${mainView === 'casemanagement' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Database className="w-4 h-4 mr-2" /> Audit History
-          </button>
-          <button onClick={() => setMainView('pitch')} className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${mainView === 'pitch' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <TrendingUp className="w-4 h-4 mr-2" /> Business Value
-          </button>
+
+          {/* Navigation Anchors */}
+          <nav className="hidden md:flex items-center space-x-1.5 bg-slate-900/40 p-1.5 rounded-xl border border-slate-800/40">
+            <button 
+              onClick={() => setMainView('dashboard')} 
+              className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                mainView === 'dashboard' 
+                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/50' 
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+              }`}
+            >
+              <Home className="w-4 h-4 mr-2" /> Dashboard
+            </button>
+            <button 
+              onClick={() => setMainView('casemanagement')} 
+              className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                mainView === 'casemanagement' 
+                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/50' 
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+              }`}
+            >
+              <Database className="w-4 h-4 mr-2" /> Audit History
+            </button>
+            <button 
+              onClick={() => setMainView('pitch')} 
+              className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                mainView === 'pitch' 
+                  ? 'bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4 mr-2" /> Business Value
+            </button>
+            <button 
+              onClick={() => setMainView('architecture')} 
+              className={`flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
+                mainView === 'architecture' 
+                  ? 'bg-blue-600/10 border border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)]' 
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+              }`}
+            >
+              <Cpu className="w-4 h-4 mr-2" /> Architecture
+            </button>
+          </nav>
+
+          {/* Global Actions */}
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={handleReset} 
+              className="hidden sm:flex items-center px-3 py-2 text-xs font-bold tracking-wide uppercase text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              Reset App
+            </button>
+            <div className="h-4 w-[1px] bg-slate-800 hidden sm:block"></div>
+            <div className="flex items-center px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 status-pulse animate-pulse"></span>
+              System Secure
+            </div>
+          </div>
+          
         </div>
       </header>
+
+      {/* Responsive Content Container with proper spacing */}
+      <div className="flex-1 w-full max-w-7xl mx-auto px-6 lg:px-8 py-10">
+      
+      {/* Simple inline responsive navigation for small screens */}
+      <nav className="flex md:hidden items-center justify-center mb-6 space-x-2 bg-slate-900/60 p-1 rounded-lg border border-slate-800/50 print:hidden">
+        <button onClick={() => setMainView('dashboard')} className={`flex-1 py-2 text-xs text-center rounded ${mainView === 'dashboard' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>Dash</button>
+        <button onClick={() => setMainView('casemanagement')} className={`flex-1 py-2 text-xs text-center rounded ${mainView === 'casemanagement' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>History</button>
+        <button onClick={() => setMainView('pitch')} className={`flex-1 py-2 text-xs text-center rounded ${mainView === 'pitch' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>Value</button>
+        <button onClick={() => setMainView('architecture')} className={`flex-1 py-2 text-xs text-center rounded ${mainView === 'architecture' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}>Blueprint</button>
+      </nav>
 
       {mainView === 'dashboard' && (
       <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 print:block print:max-w-none">
@@ -253,7 +325,7 @@ function App() {
               </div>
             </div>
 
-            <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-suraksha-accent transition-colors duration-300 bg-slate-800/30">
+            <div className="border border-dashed border-slate-700/80 hover:border-blue-500/60 rounded-2xl p-8 bg-slate-900/40 backdrop-blur-sm hover:bg-slate-900/60 transition-all duration-300 shadow-inner group">
               <input 
                 type="file" 
                 id="file-upload" 
@@ -262,11 +334,13 @@ function App() {
                 accept=".pdf,image/*"
               />
               <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
-                <FileText className="w-12 h-12 text-slate-400 mb-3" />
-                <span className="text-slate-300 font-medium">
-                  {file ? file.name : "Drop document or click to browse"}
+                <FileText className="w-14 h-14 text-slate-500 mb-4 group-hover:text-blue-400 group-hover:scale-110 transition-all duration-300 ease-out" />
+                <span className="text-slate-300 font-bold tracking-wide text-sm group-hover:text-white transition-colors">
+                  {file ? file.name : "Choose Document"}
                 </span>
-                <span className="text-slate-500 text-xs mt-2">Supports PDF, JPG, PNG</span>
+                <span className="text-slate-500 text-[11px] mt-2 font-medium tracking-widest uppercase">
+                  Supports PDF, JPG, PNG
+                </span>
               </label>
             </div>
             <button 
@@ -673,7 +747,169 @@ function App() {
         )}
         </main>
       )}
+      {mainView === 'architecture' && (
+        <main className="max-w-6xl mx-auto animate-in fade-in duration-500 space-y-10">
+          
+          {/* Header Overview */}
+          <div className="text-center space-y-4">
+            <h2 className="text-4xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              System Architecture & Live Blueprint
+            </h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto font-medium">
+              A high-level interactive map of Suraksha's multi-modal data streams, neural engines, and engineering roadmap for active collaboration.
+            </p>
+          </div>
 
+          {/* Visual Ingestion & Analysis Flowchart */}
+          <div className="glass-panel p-8">
+            <h3 className="text-xl font-bold mb-8 flex items-center border-b border-slate-800 pb-4">
+              <GitGraph className="w-5 h-5 mr-2.5 text-blue-400" />
+              Interactive Neural Analysis Pipeline
+            </h3>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-center text-center">
+              
+              {/* Block 1: Document Upload */}
+              <div className="col-span-1 bg-slate-900/80 border border-slate-800 p-5 rounded-xl shadow-lg hover:border-blue-500/40 transition-colors">
+                <div className="flex justify-center mb-3 text-blue-400"><UploadCloud className="w-8 h-8" /></div>
+                <h4 className="font-bold text-sm text-slate-200">Ingestion</h4>
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">PDF/JPG Stream</p>
+              </div>
+
+              {/* Arrow */}
+              <div className="col-span-1 flex lg:flex-col items-center justify-center text-slate-600 rotate-90 lg:rotate-0">
+                <span className="font-mono text-lg">➔</span>
+              </div>
+
+              {/* Block 2: Forensic Extraction Layer */}
+              <div className="col-span-1 bg-slate-900/80 border border-slate-800 p-5 rounded-xl shadow-lg hover:border-emerald-500/40 transition-colors">
+                <div className="flex justify-center mb-3 text-emerald-400"><FileSearch className="w-8 h-8" /></div>
+                <h4 className="font-bold text-sm text-slate-200">Pre-Process</h4>
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">EXIF / PyMuPDF</p>
+              </div>
+
+              {/* Arrow */}
+              <div className="col-span-1 flex lg:flex-col items-center justify-center text-slate-600 rotate-90 lg:rotate-0">
+                <span className="font-mono text-lg">➔</span>
+              </div>
+
+              {/* Block 3: Parallel AI Engines */}
+              <div className="col-span-1 relative flex flex-col space-y-3 justify-center items-stretch">
+                <div className="absolute -inset-2 bg-indigo-500/10 rounded-xl blur-md"></div>
+                
+                <div className="relative bg-slate-800/80 border border-slate-700 p-3 rounded-lg text-left shadow-sm hover:border-indigo-400 transition-colors">
+                  <div className="flex items-center text-xs font-bold text-indigo-300"><Layers className="w-3.5 h-3.5 mr-1.5" /> Vision ELA</div>
+                  <p className="text-[9px] text-slate-500 mt-0.5">Compression Analysis</p>
+                </div>
+                <div className="relative bg-slate-800/80 border border-slate-700 p-3 rounded-lg text-left shadow-sm hover:border-purple-400 transition-colors">
+                  <div className="flex items-center text-xs font-bold text-purple-300"><ListChecks className="w-3.5 h-3.5 mr-1.5" /> NLP Entity</div>
+                  <p className="text-[9px] text-slate-500 mt-0.5">Entity Matching & Regex</p>
+                </div>
+                <div className="relative bg-slate-800/80 border border-slate-700 p-3 rounded-lg text-left shadow-sm hover:border-pink-400 transition-colors">
+                  <div className="flex items-center text-xs font-bold text-pink-300"><Network className="w-3.5 h-3.5 mr-1.5" /> Graph Heuristics</div>
+                  <p className="text-[9px] text-slate-500 mt-0.5">Sybil/Fraud Chains</p>
+                </div>
+              </div>
+
+              {/* Arrow */}
+              <div className="col-span-1 flex lg:flex-col items-center justify-center text-slate-600 rotate-90 lg:rotate-0">
+                <span className="font-mono text-lg">➔</span>
+              </div>
+
+              {/* Block 4: Decision API Gateway */}
+              <div className="col-span-1 bg-slate-900/80 border border-slate-800 p-5 rounded-xl shadow-lg hover:border-red-500/40 transition-colors">
+                <div className="flex justify-center mb-3 text-red-400"><Shield className="w-8 h-8" /></div>
+                <h4 className="font-bold text-sm text-slate-200">Verdict Engine</h4>
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">Scoring & Audit Save</p>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Side-by-Side Sub-System Descriptions & Team Roadmap */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Sub-System Technical Description */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="glass-panel p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center text-slate-100">
+                  <Server className="w-5 h-5 mr-2.5 text-purple-400" /> Backend Core Sub-Systems
+                </h3>
+                <div className="space-y-4 text-sm">
+                  <div className="p-4 bg-slate-900/40 rounded-lg border border-slate-800/80">
+                    <h4 className="font-bold text-slate-200 flex items-center"><span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span> ELA Heatmap Generator (Vision)</h4>
+                    <p className="text-slate-400 mt-1 text-xs leading-relaxed">Resaves incoming images at controlled quality offsets (from 95 to 85) and computes pixel difference variance arrays. Highlight patches denote localized resaves (Photoshopped regions) which triggers high ELA means scores.</p>
+                  </div>
+                  <div className="p-4 bg-slate-900/40 rounded-lg border border-slate-800/80">
+                    <h4 className="font-bold text-slate-200 flex items-center"><span className="w-2 h-2 bg-emerald-400 rounded-full mr-2"></span> Metadata Forensic Indexer</h4>
+                    <p className="text-slate-400 mt-1 text-xs leading-relaxed">Recursively extracts EXIF metadata tags (Software, DateTime, Tags 305/270), computes file-level SHA256 hashes, verifies image dimensions, and detects standard digital editing software strings (Adobe, GIMP).</p>
+                  </div>
+                  <div className="p-4 bg-slate-900/40 rounded-lg border border-slate-800/80">
+                    <h4 className="font-bold text-slate-200 flex items-center"><span className="w-2 h-2 bg-purple-400 rounded-full mr-2"></span> Safe Entity Gating (NLP)</h4>
+                    <p className="text-slate-400 mt-1 text-xs leading-relaxed">Applies horizontal-only Regex boundaries (`[ \t]`) to isolate Buyers/Sellers, runs length-gating (greater than 5 words rejected) to filter garbage OCR fragments, and checks physical EXIF `ImageDescription` headers for genuine dynamic OCR extraction.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* What's Left To Do: The Dynamic Team Roadmap */}
+            <div className="lg:col-span-1">
+              <div className="glass-panel p-6 border-l-4 border-blue-500 h-full flex flex-col">
+                <h3 className="text-lg font-bold mb-4 flex items-center text-slate-100 border-b border-slate-800 pb-2">
+                  <ListChecks className="w-5 h-5 mr-2.5 text-blue-400" /> Team Development Roadmap
+                </h3>
+                
+                <div className="flex-1 space-y-6 text-xs mt-2">
+                  {/* Done Block */}
+                  <div>
+                    <p className="font-bold text-emerald-400 tracking-widest uppercase text-[10px] mb-3 flex items-center">
+                      <CheckCircle className="w-3 h-3 mr-1.5" /> Accomplished & Fully Stable
+                    </p>
+                    <ul className="space-y-2 text-slate-300">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-1.5">✓</span> Real EXIF Header OCR Extraction</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-1.5">✓</span> Premium Multi-Modal Layout Cards</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-1.5">✓</span> React Audit History Bug Resolution</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-1.5">✓</span> Global Sticky Glassmorphism Styling</li>
+                    </ul>
+                  </div>
+
+                  {/* In Progress Block */}
+                  <div>
+                    <p className="font-bold text-yellow-500 tracking-widest uppercase text-[10px] mb-3 flex items-center">
+                      <Activity className="w-3 h-3 mr-1.5" /> Actively In Development
+                    </p>
+                    <ul className="space-y-2 text-slate-300">
+                      <li className="flex items-start animate-pulse"><span className="text-yellow-500 mr-1.5">▶</span> Large Scale GraphSAGE Layout Clustering</li>
+                      <li className="flex items-start"><span className="text-yellow-500 mr-1.5">▶</span> Edge-case API failure retry mechanisms</li>
+                    </ul>
+                  </div>
+
+                  {/* Future Block - Open tasks for teammates */}
+                  <div>
+                    <p className="font-bold text-blue-400 tracking-widest uppercase text-[10px] mb-3 flex items-center">
+                      <Box className="w-3 h-3 mr-1.5" /> Tasks Available for Teammates
+                    </p>
+                    <ul className="space-y-2 text-slate-300">
+                      <li className="flex items-start font-bold"><span className="text-blue-400 mr-2">❑</span> Task 1: Multi-page PDF batch queues</li>
+                      <li className="flex items-start font-bold"><span className="text-blue-400 mr-2">❑</span> Task 2: Tesseract Docker production build</li>
+                      <li className="flex items-start font-bold"><span className="text-blue-400 mr-2">❑</span> Task 3: Visual forensic watermark PDF reports</li>
+                    </ul>
+                  </div>
+
+                </div>
+                
+                <div className="mt-6 pt-4 border-t border-slate-800 text-[10px] text-slate-500 text-center italic">
+                  Branch: main • Push status: Live on GitHub
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </main>
+      )}
+
+      </div>
     </div>
   );
 }
