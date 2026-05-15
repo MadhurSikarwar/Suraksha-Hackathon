@@ -46,11 +46,18 @@ def analyze_pdf_metadata(file_path: str):
 
 def analyze_image_metadata(file_path: str):
     """
-    Extracts EXIF data from images to find hidden software signatures.
+    Extracts EXIF data from images to find hidden software signatures and check physical integrity.
     """
     try:
         image = Image.open(file_path)
+        
+        # Try standard EXIF and fall back to internal _getexif if needed
         exifdata = image.getexif()
+        if not exifdata and hasattr(image, '_getexif'):
+            try:
+                exifdata = image._getexif()
+            except Exception:
+                exifdata = None
         
         results = {
             "is_suspicious": False,
@@ -58,6 +65,12 @@ def analyze_image_metadata(file_path: str):
             "extracted_data": {}
         }
         
+        # Physical integrity check: extreme low resolution gating (prevents spoofing thumbnail docs)
+        w, h = image.size
+        if w < 200 or h < 200:
+            results["is_suspicious"] = True
+            results["reasons"].append(f"Sub-threshold resolution ({w}x{h}): Document dimensions too small for genuine financial collateral.")
+
         if not exifdata:
             return results
             
@@ -65,18 +78,25 @@ def analyze_image_metadata(file_path: str):
             tag = ExifTags.TAGS.get(tag_id, tag_id)
             data = exifdata.get(tag_id)
             if isinstance(data, bytes):
-                data = data.decode('utf-8', errors='ignore')
-            results["extracted_data"][tag] = str(data)
+                try:
+                    data = data.decode('utf-8', errors='ignore')
+                except Exception:
+                    data = str(data)
+            results["extracted_data"][str(tag)] = str(data)
             
             # Check for editing software signatures
-            if tag == 'Software':
+            if str(tag) == 'Software':
                 software_val = str(data).lower()
-                suspicious_tools = ['photoshop', 'gimp', 'canva', 'paint']
+                suspicious_tools = ['photoshop', 'gimp', 'canva', 'paint', 'illustrator', 'acrobat', 'snagit']
                 for tool in suspicious_tools:
                     if tool in software_val:
                         results["is_suspicious"] = True
-                        results["reasons"].append(f"Image was edited with: {software_val}")
-                        
+                        results["reasons"].append(f"Forensic Flag: Metadata contains editing software signature ({software_val}).")
+            
+            # Check for date format anomalies
+            if str(tag) in ['DateTime', 'DateTimeOriginal', 'DateTimeDigitized']:
+                results["extracted_data"]["image_datetime"] = str(data)
+
         return results
     except Exception as e:
         return {"is_suspicious": False, "reasons": [f"Failed to parse Image metadata: {str(e)}"]}

@@ -8,6 +8,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [fileUrl, setFileUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStage, setUploadStage] = useState(0);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [activeTab, setActiveTab] = useState('audit'); // 'audit' or 'graph'
@@ -72,9 +73,21 @@ function App() {
     }
   };
 
+  const getStageText = () => {
+    switch(uploadStage) {
+      case 1: return "Extracting Cryptographic Signatures...";
+      case 2: return "Running EXIF & PDF Metadata Matrices...";
+      case 3: return "Executing Neural ELA Vision Arrays...";
+      case 4: return "Parsing Multimodal Legal Casing...";
+      case 5: return "Drafting Certified Forensic Ledger...";
+      default: return "Analyzing Multimodal Vectors...";
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setIsUploading(true);
+    setUploadStage(1); // Stage 1: Start
     setAnalysisResult(null);
 
     const formData = new FormData();
@@ -93,12 +106,20 @@ function App() {
       const MAX_POLLS = 60;
       const pollInterval = setInterval(async () => {
         pollCount++;
+        
+        // Shift UI progress text dynamically across clock ticks for maximum demo immersion
+        if (pollCount === 2) setUploadStage(2);
+        if (pollCount === 3) setUploadStage(3);
+        if (pollCount === 4) setUploadStage(4);
+        if (pollCount === 5) setUploadStage(5);
+
         try {
           const statusRes = await axios.get(`http://localhost:8000/api/v1/document/${taskId}/status`);
           const status = statusRes.data.status;
 
           if (status === 'completed') {
             clearInterval(pollInterval);
+            setUploadStage(0);
             setAnalysisResult(statusRes.data);
 
             // Step 3: Fetch Graph Data (non-blocking)
@@ -115,12 +136,14 @@ function App() {
 
           } else if (status === 'failed') {
             clearInterval(pollInterval);
+            setUploadStage(0);
             setIsUploading(false);
             // Show result even on failure (backend populates REVIEW result)
             setAnalysisResult(statusRes.data);
 
           } else if (status === 'not_found' || pollCount >= MAX_POLLS) {
             clearInterval(pollInterval);
+            setUploadStage(0);
             setIsUploading(false);
             // Demo safety: show offline fallback
             setAnalysisResult({
@@ -136,6 +159,7 @@ function App() {
         } catch (pollErr) {
           console.warn('Poll error (using fallback):', pollErr.message);
           clearInterval(pollInterval);
+          setUploadStage(0);
           setIsUploading(false);
           setAnalysisResult({
             task_id: taskId,
@@ -152,6 +176,7 @@ function App() {
     } catch (err) {
       console.warn('Upload failed (using offline fallback):', err.message);
       setIsUploading(false);
+      setUploadStage(0);
       setAnalysisResult({
         task_id: 'demo-offline-999',
         status: 'completed',
@@ -373,7 +398,7 @@ function App() {
             >
               {isUploading ? (
                 <>
-                  <Activity className="w-5 h-5 mr-2 animate-spin" /> Analyzing Multimodal Vectors...
+                  <Activity className="w-5 h-5 mr-2 animate-spin" /> {getStageText()}
                 </>
               ) : 'Run Fraud Analysis'}
             </button>
