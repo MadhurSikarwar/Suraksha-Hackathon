@@ -8,9 +8,9 @@ PyMuPDF
 Pillow
 opencv-python
 numpy
-# The following would be needed for a full deployment, commented out for lightweight hackathon setup if they aren't pre-installed
-# torch
-# torchvision
+torch
+torchvision
+transformers
 # xgboost
 # neo4j
 # psycopg2-binary

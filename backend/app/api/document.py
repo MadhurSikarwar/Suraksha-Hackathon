@@ -12,6 +12,7 @@ import logging
 from app.ml.forensics.metadata_extractor import extract_metadata
 from app.ml.forensics.deep_inspector import run_deep_inspection
 from app.ml.vision.tamper_detect import analyze_visual_tampering
+from app.ml.vision.vit_analyzer import run_vit_analysis
 from app.ml.nlp.entity_extractor import extract_legal_entities
 from app.models.audit_log import log_case
 
@@ -42,6 +43,10 @@ class AnalysisResult(BaseModel):
     heatmap_url: Optional[str] = None
     forensic_data: Optional[Dict[str, Any]] = None
     anomaly_grade: Optional[str] = "NONE"
+    vit_score: Optional[float] = None
+    vit_heatmap_url: Optional[str] = None
+    vit_confidence: Optional[float] = None
+    vit_visual_indicators: List[str] = []
     timestamp: Optional[str] = None
 
     class Config:
@@ -80,6 +85,19 @@ def process_document(task_id: str, file_path: str):
                 reasons.extend(vision_results.get("reasons", []))
         except Exception as e:
             logger.warning(f"[{task_id}] Vision analysis failed: {e}")
+
+        # --- 2.5 Vision Transformer (ViT) Deep Visual Analysis ---
+        vit_results = None
+        vit_heatmap_url = None
+        try:
+            vit_results = run_vit_analysis(file_path, task_id)
+            vit_heatmap_url = vit_results.get("vit_heatmap_url")
+            if vit_results.get("vit_score", 0) > 60:
+                suspicious_flags += 2.0  # High weight for Deep ViT Model
+                reasons.extend(vit_results.get("visual_indicators", []))
+                reasons.append(f"ViT Anomaly Classification: {vit_results.get('classification')}")
+        except Exception as e:
+            logger.warning(f"[{task_id}] ViT analysis failed: {e}")
 
         # --- 3. NLP Entity Extraction ---
         extracted_entities = {}
@@ -159,6 +177,10 @@ def process_document(task_id: str, file_path: str):
             "heatmap_url": heatmap_url,
             "forensic_data": forensic_data,
             "anomaly_grade": anomaly_grade,
+            "vit_score": vit_results.get("vit_score") if vit_results else None,
+            "vit_heatmap_url": vit_heatmap_url,
+            "vit_confidence": vit_results.get("vit_confidence") if vit_results else None,
+            "vit_visual_indicators": vit_results.get("visual_indicators", []) if vit_results else [],
         })
         log_case(task_id, decision, fraud_score, extracted_entities, reasons)
 
@@ -173,6 +195,10 @@ def process_document(task_id: str, file_path: str):
             "heatmap_url": None,
             "forensic_data": None,
             "anomaly_grade": "UNKNOWN",
+            "vit_score": None,
+            "vit_heatmap_url": None,
+            "vit_confidence": None,
+            "vit_visual_indicators": [],
         })
     finally:
         # Always clean up uploaded temp file

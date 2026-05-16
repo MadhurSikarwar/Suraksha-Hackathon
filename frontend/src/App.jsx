@@ -713,7 +713,15 @@ function App() {
 
                {activeTab === 'forensic' && (
                 <div className="animate-in fade-in duration-500">
-                  <ForensicPanel forensicData={analysisResult.forensic_data} />
+                  <ForensicPanel 
+                    forensicData={analysisResult.forensic_data} 
+                    vitData={{
+                      score: analysisResult.vit_score,
+                      confidence: analysisResult.vit_confidence,
+                      heatmap_url: analysisResult.vit_heatmap_url,
+                      indicators: analysisResult.vit_visual_indicators
+                    }}
+                  />
                 </div>
               )}
 
