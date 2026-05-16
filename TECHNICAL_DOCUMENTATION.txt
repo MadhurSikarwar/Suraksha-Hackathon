@@ -390,7 +390,7 @@ SECTION 5: DEMO SCENARIOS
 ==============================================================
 
 These require running the synthetic data generator first:
-  cd frontend/synthetic_engine && python generator.py
+  cd data_pipeline/synthetic_engine && python generator.py
 
 Generates in frontend/public/samples/:
   clean_deed.jpg      - Authentic looking document (SAFE result)
@@ -421,7 +421,7 @@ FRONTEND:
   -> Runs at http://localhost:5173
 
 GENERATE DEMO DATA (optional but recommended):
-  cd frontend/synthetic_engine
+  cd data_pipeline/synthetic_engine
   python generator.py
 
 BUILD FOR PRODUCTION:
@@ -468,6 +468,8 @@ SECTION 8: FILE STRUCTURE
 Suraksha Hackathon/
 ├── README.md                          # GitHub-ready documentation
 ├── docker-compose.yml                 # Full stack Docker config
+├── data_pipeline/                     # Synthetic data scripts
+│   └── synthetic_engine/generator.py  # Generates demo images
 ├── backend/
 │   ├── Dockerfile                     # Production container
 │   ├── requirements.txt               # Python dependencies
@@ -492,7 +494,6 @@ Suraksha Hackathon/
     ├── vite.config.js                 # Vite + TailwindCSS v4 config
     ├── package.json
     ├── public/samples/                # Demo scenario images (git-ignored)
-    ├── synthetic_engine/generator.py  # Generates demo images
     └── src/
         ├── App.jsx                    # Main React SPA
         └── index.css                  # Design system + animations

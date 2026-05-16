@@ -101,7 +101,7 @@ npm run dev
 ### 3. Generate Live Demo Data (Required for Pitch)
 To fully populate the "One-Click Guided Demo" scenarios on the dashboard:
 ```bash
-cd frontend/synthetic_engine
+cd data_pipeline/synthetic_engine
 python generator.py
 ```
 *This generates visually perfect sample deeds (clean, forged, and fraud rings).*

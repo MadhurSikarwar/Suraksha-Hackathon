@@ -85,7 +85,7 @@ const StatCard = ({ label, value, sub, color = 'blue' }) => {
   );
 };
 
-export default function ForensicPanel({ forensicData }) {
+export default function ForensicPanel({ forensicData, vitData }) {
   if (!forensicData) {
     return (
       <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
@@ -206,6 +206,25 @@ export default function ForensicPanel({ forensicData }) {
           <Row label="Laplacian Sharpness" value={vs.laplacian_sharpness} />
           <Row label="Double-JPEG Indicator" value={vs.double_jpeg_indicator} alert={vs.double_jpeg_indicator} />
           <Row label="Tampering Probability" value={`${vs.tampering_probability_pct}%`} alert={vs.tampering_probability_pct > 50} />
+        </Section>
+      )}
+
+      {/* ── Vision Transformer Analysis ── */}
+      {vitData && vitData.score !== undefined && vitData.score !== null && (
+        <Section title="Vision Transformer Analysis" icon="🧠" defaultOpen={true} accentColor="purple">
+          <Row label="ViT Anomaly Score" value={vitData.score} alert={vitData.score > 60} />
+          <Row label="ViT Confidence" value={vitData.confidence} />
+          {vitData.indicators && vitData.indicators.length > 0 && (
+            <div className="mt-3 mb-2 px-1">
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">ViT Visual Indicators</div>
+              {vitData.indicators.map((ind, i) => (
+                <div key={i} className="text-sm text-slate-300 py-1 flex items-start gap-2">
+                  <span className="text-purple-400 mt-0.5">•</span>
+                  <span>{ind}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Section>
       )}
 

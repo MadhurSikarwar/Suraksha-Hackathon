@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import uuid
@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import re
 import logging
+from fpdf import FPDF
 
 from app.ml.forensics.metadata_extractor import extract_metadata
 from app.ml.forensics.deep_inspector import run_deep_inspection
@@ -270,144 +271,188 @@ async def get_status(task_id: str):
     if task_id not in TASKS:
         return AnalysisResult(task_id=task_id, status="not_found")
 
-    return AnalysisResult(task_id=task_id, **TASKS[task_id])
-
-
-@router.get("/{task_id}/report", response_class=PlainTextResponse)
-async def generate_forensic_report(task_id: str):
+@router.get("/{task_id}/report")
+async def generate_report(task_id: str):
     """
-    Generates a downloadable, certified ASCII forensic report for underwriters and legal audit trails.
+    Generates a certified PDF forensic report for a completed analysis task.
     """
-    if not UUID_RE.match(task_id) or task_id not in TASKS:
-        raise HTTPException(status_code=404, detail="Forensic record not found.")
-
+    if task_id not in TASKS:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    
     task = TASKS[task_id]
-    if task.get("status") != "completed":
-        raise HTTPException(status_code=400, detail="Report only available for completed analyses.")
+    if task["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Analysis not complete or failed.")
 
-    # ── Safe entity extraction (handles both old string and new object format) ──
-    entities = task.get("extracted_entities", {})
-    def _entity_val(key, fallback="Not Detected"):
-        obj = entities.get(key, {})
-        if isinstance(obj, dict):
-            return obj.get("value", fallback) or fallback
-        return str(obj) if obj else fallback
+    # --- Extract Data for Report ---
+    forensic = task.get('forensic_data', {})
+    entities = task.get('extracted_entities', {})
+    fraud_intel = forensic.get('fraud_intelligence', {})
+    visual = forensic.get('visual_signals', {})
+    pdf_data = forensic.get('pdf_forensics', {})
+    identity = forensic.get('file_identity', {})
+    crypt = forensic.get('cryptographic', {})
+
+    def _entity_val(key):
+        e = entities.get(key, {})
+        if isinstance(e, dict): return e.get('value', 'N/A')
+        return str(e)
 
     def _entity_conf(key):
-        obj = entities.get(key, {})
-        if isinstance(obj, dict):
-            conf = obj.get("confidence", 0)
-            return f"{conf * 100:.0f}%" if conf else "N/A"
+        e = entities.get(key, {})
+        if isinstance(e, dict): 
+            conf = e.get('confidence', 0)
+            return f"{conf*100:.1f}%"
         return "N/A"
 
-    buyer_val    = _entity_val("buyer")
-    seller_val   = _entity_val("seller")
-    survey_val   = _entity_val("survey_number")
-    date_val     = _entity_val("date")
+    buyer_val = _entity_val('buyer')
+    seller_val = _entity_val('seller')
+    survey_val = _entity_val('survey_number')
+    date_val = _entity_val('date')
 
-    # ── Forensic data extraction with CORRECT key names ──
-    forensic     = task.get("forensic_data") or {}
-    file_id      = forensic.get("file_identity", {})       # correct key: file_identity
-    crypt        = forensic.get("cryptographic", {})        # correct key: cryptographic
-    img_f        = forensic.get("image_forensics", {})
-    pdf_f        = forensic.get("pdf_forensics", {})
-    vs           = forensic.get("visual_signals", {})
-    fraud_intel  = forensic.get("fraud_intelligence", {})
+    anomalies = fraud_intel.get('detected_anomalies', [])
+    ela_score = f"{visual.get('ela_mean_score', 0.0):.2f}"
+    tamper_pct = visual.get('tampering_probability_pct', 0.0)
+    noise_flag = "YES" if visual.get('noise_inconsistency_flag') else "NO"
+    edit_sw = forensic.get('image_forensics', {}).get('editing_software_detected', [])
+    edit_sw_str = ", ".join(edit_sw) if edit_sw else "None Detected"
 
-    # ── Build anomaly block ──
-    anomalies = fraud_intel.get("detected_anomalies", [])
-    anomaly_lines = "\n".join([f"   [{i+1}] {a}" for i, a in enumerate(anomalies)]) if anomalies else "   None detected."
+    mime_type = identity.get('mime_type_detected', 'N/A')
+    file_size = identity.get('file_size_human', 'N/A')
+    dimensions = forensic.get('image_forensics', {}).get('dimensions', 'N/A')
+    mime_mismatch = "YES" if identity.get('mime_mismatch') else "NO"
+    pdf_inc_saves = "YES" if pdf_data.get('incremental_saves') else "NO"
+    pdf_js = "YES" if pdf_data.get('has_javascript') else "NO"
+    sha256 = crypt.get('sha256', 'N/A')
+    md5 = crypt.get('md5', 'N/A')
 
-    reasons_str = "\n".join([f"   - {r}" for r in task.get("reasons", [])])
+    # --- Generate PDF ---
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Title Header
+    pdf.set_fill_color(30, 41, 59) # Slate 800
+    pdf.rect(0, 0, 210, 40, 'F')
+    
+    pdf.set_font("helvetica", "B", 18)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_y(10)
+    pdf.cell(0, 10, "SURAKSHA INTELLIGENCE", align="C")
+    
+    pdf.set_font("helvetica", "", 10)
+    pdf.set_text_color(200, 200, 200)
+    pdf.set_y(20)
+    pdf.cell(0, 5, "CERTIFIED FORENSIC DISPOSITION REPORT", align="C")
+    pdf.set_y(25)
+    pdf.cell(0, 5, "Indian Banking & Finance Grade | IT Act 2000", align="C")
+    
+    # Body setup
+    pdf.set_y(45)
+    pdf.set_text_color(0, 0, 0)
+    
+    def section_header(title):
+        pdf.ln(4)
+        pdf.set_font("helvetica", "B", 12)
+        pdf.set_fill_color(241, 245, 249) # Slate 100
+        pdf.cell(0, 8, f" {title}", fill=True, border=1)
+        pdf.ln(10)
 
-    # ── Editing software ──
-    edit_sw = img_f.get("editing_software_detected", [])
-    edit_sw_str = ", ".join(edit_sw) if edit_sw else "None"
+    def kv_pair(key, value, color=None):
+        pdf.set_font("helvetica", "B", 10)
+        pdf.cell(50, 6, key, border=0)
+        pdf.set_font("helvetica", "", 10)
+        if color:
+            pdf.set_text_color(color[0], color[1], color[2])
+        pdf.multi_cell(0, 6, str(value), border=0)
+        pdf.set_text_color(0, 0, 0)
 
-    # ── Visual signal summary ──
-    ela_score = vs.get("ela_mean_score", "N/A")
-    tamper_pct = vs.get("tampering_probability_pct", "N/A")
-    noise_flag = "YES" if vs.get("noise_inconsistency_flag") else "NO"
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(50, 6, "CASE FILE ID:")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 6, task_id)
+    pdf.ln(6)
+    
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(50, 6, "REPORT ISSUED:")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 6, task.get('timestamp', 'N/A'))
+    pdf.ln(6)
+    
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(50, 6, "VERDICT:")
+    pdf.set_font("helvetica", "B", 12)
+    verdict_color = (239, 68, 68) if task.get('decision') == 'REJECT' else ((245, 158, 11) if task.get('decision') == 'REVIEW' else (16, 185, 129))
+    pdf.set_text_color(*verdict_color)
+    pdf.cell(0, 6, task.get('decision', 'REVIEW'))
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(8)
+    
+    section_header("RISK ASSESSMENT PROFILE")
+    kv_pair("Combined Fraud Index", f"{task.get('fraud_score', 0.0):.2f} / 100.00")
+    kv_pair("Anomaly Severity Grade", task.get('anomaly_grade', 'UNKNOWN'))
+    kv_pair("Forgery Type Detected", fraud_intel.get('potential_forgery_type', 'N/A'))
+    kv_pair("Duplicate Doc Prob.", f"{fraud_intel.get('duplicate_document_probability', 'N/A')}%")
+    kv_pair("Legal Defensibility", fraud_intel.get('legal_defensibility', 'N/A'))
+    kv_pair("Verification Vectors", "Vision ELA, Metadata Inspector, Multi-Modal NLP, Graph")
+    
+    section_header("DOCUMENT IDENTITY ENTITIES")
+    kv_pair("Buyer Name", f"{buyer_val} (Conf: {_entity_conf('buyer')})")
+    kv_pair("Seller Name", f"{seller_val} (Conf: {_entity_conf('seller')})")
+    kv_pair("Survey Number", f"{survey_val} (Conf: {_entity_conf('survey_number')})")
+    kv_pair("Document Date", f"{date_val} (Conf: {_entity_conf('date')})")
+    
+    section_header("PIPELINE ALERTS & INDICATORS")
+    pdf.set_font("helvetica", "", 10)
+    if task.get("reasons"):
+        for r in task.get("reasons"):
+            pdf.multi_cell(0, 6, f"\xb7 {r}")
+    else:
+        pdf.cell(0, 6, "None")
+        pdf.ln(6)
+        
+    section_header("DEEP FORENSIC ANOMALY SIGNALS")
+    pdf.set_font("helvetica", "", 10)
+    if anomalies:
+        for i, a in enumerate(anomalies):
+            pdf.multi_cell(0, 6, f"[{i+1}] {a}")
+    else:
+        pdf.cell(0, 6, "None detected.")
+        pdf.ln(6)
+        
+    section_header("VISUAL FORENSIC ANALYSIS")
+    kv_pair("ELA Mean Score", ela_score)
+    kv_pair("Tampering Probability", f"{tamper_pct}%")
+    kv_pair("Noise Inconsistency", noise_flag)
+    kv_pair("Editing Software", edit_sw_str)
+    
+    section_header("FILE & STRUCTURAL FORENSICS")
+    kv_pair("MIME Type (Detected)", mime_type)
+    kv_pair("File Size", file_size)
+    kv_pair("Dimensions / Page Size", dimensions)
+    kv_pair("MIME Type Mismatch", mime_mismatch, (239, 68, 68) if "YES" in mime_mismatch else None)
+    kv_pair("Incremental PDF Saves", pdf_inc_saves, (239, 68, 68) if "YES" in pdf_inc_saves else None)
+    kv_pair("Embedded JavaScript", pdf_js, (239, 68, 68) if "YES" in pdf_js else None)
+    
+    section_header("CRYPTOGRAPHIC FINGERPRINTS")
+    pdf.set_font("helvetica", "B", 9)
+    pdf.cell(20, 5, "SHA-256:")
+    pdf.set_font("helvetica", "", 8)
+    pdf.multi_cell(0, 5, sha256)
+    pdf.set_font("helvetica", "B", 9)
+    pdf.cell(20, 5, "MD5:")
+    pdf.set_font("helvetica", "", 8)
+    pdf.multi_cell(0, 5, md5)
+    
+    pdf.ln(10)
+    pdf.set_font("helvetica", "I", 8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.multi_cell(0, 4, "Certified under Section 65B of the Information Technology Act, 2000.\nThis report represents an immutable, cryptographically verified record of document forensic analysis. Admissible as electronic evidence.\nSuraksha Intelligence Platform \x97 Generated: " + task.get('timestamp', 'N/A'), align="C")
 
-    # ── PDF or image specifics ──
-    mime_type      = file_id.get("mime_type_detected", "N/A")
-    file_size      = file_id.get("file_size_human", "N/A")
-    dimensions     = img_f.get("dimensions", pdf_f.get("page_sizes", ["N/A"])[0] if pdf_f.get("page_sizes") else "N/A")
-    mime_mismatch  = "YES ⚠" if file_id.get("mime_mismatch") else "NO"
-    pdf_inc_saves  = "YES ⚠" if pdf_f.get("incremental_saves") else "NO"
-    pdf_js         = "YES ⚠ HIGH RISK" if pdf_f.get("has_javascript") else "NO"
-    sha256         = crypt.get("sha256", "N/A")
-    md5            = crypt.get("md5", "N/A")
+    pdf_bytes = pdf.output()
 
-    report_text = f"""=========================================================================
-               SURAKSHA INTELLIGENCE — CERTIFIED FORENSIC DISPOSITION REPORT
-                       Indian Banking & Finance Grade | IT Act 2000
-=========================================================================
- CASE FILE ID   :  {task_id}
- REPORT ISSUED  :  {task.get('timestamp', 'N/A')}
- VERDICT        :  *** {task.get('decision', 'REVIEW')} ***
- ANOMALY GRADE  :  {task.get('anomaly_grade', 'UNKNOWN')}
- STATUS         :  COMPLETED & CRYPTOGRAPHICALLY SIGNED
-=========================================================================
-
-[SECTION 1]  RISK ASSESSMENT PROFILE
--------------------------------------------------------------------------
-  Combined Fraud Index    :  {task.get('fraud_score', 0.0):.2f} / 100.00
-  Anomaly Severity Grade  :  {task.get('anomaly_grade', 'UNKNOWN')}
-  Forgery Type Detected   :  {fraud_intel.get('potential_forgery_type', 'N/A')}
-  Duplicate Doc Prob.     :  {fraud_intel.get('duplicate_document_probability', 'N/A')}%
-  Legal Defensibility     :  {fraud_intel.get('legal_defensibility', 'N/A')}
-  Verification Vectors    :  Vision ELA, Metadata Inspector, Multi-Modal NLP, Graph Heuristics
-
-[SECTION 2]  DOCUMENT IDENTITY ENTITIES (LEGAL LAYER)
--------------------------------------------------------------------------
-  Buyer  Name    :  {buyer_val}  (Confidence: {_entity_conf('buyer')})
-  Seller Name    :  {seller_val}  (Confidence: {_entity_conf('seller')})
-  Survey Number  :  {survey_val}  (Confidence: {_entity_conf('survey_number')})
-  Document Date  :  {date_val}  (Confidence: {_entity_conf('date')})
-
-[SECTION 3]  MULTI-MODAL PIPELINE ALERTS & INDICATORS
--------------------------------------------------------------------------
-{reasons_str}
-
-[SECTION 4]  DEEP FORENSIC ANOMALY SIGNALS
--------------------------------------------------------------------------
-{anomaly_lines}
-
-[SECTION 5]  VISUAL FORENSIC ANALYSIS (ELA SIGNAL)
--------------------------------------------------------------------------
-  ELA Mean Score          :  {ela_score}
-  Tampering Probability   :  {tamper_pct}%
-  Noise Inconsistency     :  {noise_flag}
-  Editing Software Found  :  {edit_sw_str}
-
-[SECTION 6]  FILE & STRUCTURAL FORENSICS
--------------------------------------------------------------------------
-  MIME Type (Detected)    :  {mime_type}
-  File Size               :  {file_size}
-  Dimensions / Page Size  :  {dimensions}
-  MIME Type Mismatch      :  {mime_mismatch}
-  Incremental PDF Saves   :  {pdf_inc_saves}
-  Embedded JavaScript     :  {pdf_js}
-
-[SECTION 7]  CRYPTOGRAPHIC FINGERPRINTS (IMMUTABLE CHAIN OF CUSTODY)
--------------------------------------------------------------------------
-  SHA-256                 :  {sha256}
-  MD5                     :  {md5}
-
-=========================================================================
-                     OFFICIAL DISPOSITION:  {task.get('decision', 'REVIEW')}
-
-  Certified under Section 65B of the Information Technology Act, 2000.
-  This report represents an immutable, cryptographically verified record
-  of document forensic analysis. Admissible as electronic evidence.
-
-  Suraksha Intelligence Platform — Forensic Document Fraud Detection
-  Generated:  {task.get('timestamp', 'N/A')}
-=========================================================================
-"""
     headers = {
-        "Content-Disposition": f"attachment; filename=suraksha-forensic-report-{task_id[:8]}.txt"
+        "Content-Disposition": f"attachment; filename=suraksha-forensic-report-{task_id[:8]}.pdf"
     }
-    return PlainTextResponse(content=report_text, headers=headers)
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
 
