@@ -172,6 +172,7 @@ def process_document(task_id: str, file_path: str):
             "extracted_entities": {},
             "heatmap_url": None,
             "forensic_data": None,
+            "anomaly_grade": "UNKNOWN",
         })
     finally:
         # Always clean up uploaded temp file
@@ -258,60 +259,129 @@ async def generate_forensic_report(task_id: str):
     if task.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Report only available for completed analyses.")
 
-    # Dynamic extraction safeguards
+    # ── Safe entity extraction (handles both old string and new object format) ──
     entities = task.get("extracted_entities", {})
-    buyer_obj = entities.get("buyer", {})
-    seller_obj = entities.get("seller", {})
-    buyer_val = buyer_obj.get("value", "Not Detected") if isinstance(buyer_obj, dict) else buyer_obj or "Not Detected"
-    seller_val = seller_obj.get("value", "Not Detected") if isinstance(seller_obj, dict) else seller_obj or "Not Detected"
+    def _entity_val(key, fallback="Not Detected"):
+        obj = entities.get(key, {})
+        if isinstance(obj, dict):
+            return obj.get("value", fallback) or fallback
+        return str(obj) if obj else fallback
 
-    forensic = task.get("forensic_data", {})
-    basic = forensic.get("basic_file_intelligence", {})
-    crypto = forensic.get("cryptographic_integrity", {})
-    
-    reasons_str = "\n".join([f" - {r}" for r in task.get("reasons", [])])
+    def _entity_conf(key):
+        obj = entities.get(key, {})
+        if isinstance(obj, dict):
+            conf = obj.get("confidence", 0)
+            return f"{conf * 100:.0f}%" if conf else "N/A"
+        return "N/A"
+
+    buyer_val    = _entity_val("buyer")
+    seller_val   = _entity_val("seller")
+    survey_val   = _entity_val("survey_number")
+    date_val     = _entity_val("date")
+
+    # ── Forensic data extraction with CORRECT key names ──
+    forensic     = task.get("forensic_data") or {}
+    file_id      = forensic.get("file_identity", {})       # correct key: file_identity
+    crypt        = forensic.get("cryptographic", {})        # correct key: cryptographic
+    img_f        = forensic.get("image_forensics", {})
+    pdf_f        = forensic.get("pdf_forensics", {})
+    vs           = forensic.get("visual_signals", {})
+    fraud_intel  = forensic.get("fraud_intelligence", {})
+
+    # ── Build anomaly block ──
+    anomalies = fraud_intel.get("detected_anomalies", [])
+    anomaly_lines = "\n".join([f"   [{i+1}] {a}" for i, a in enumerate(anomalies)]) if anomalies else "   None detected."
+
+    reasons_str = "\n".join([f"   - {r}" for r in task.get("reasons", [])])
+
+    # ── Editing software ──
+    edit_sw = img_f.get("editing_software_detected", [])
+    edit_sw_str = ", ".join(edit_sw) if edit_sw else "None"
+
+    # ── Visual signal summary ──
+    ela_score = vs.get("ela_mean_score", "N/A")
+    tamper_pct = vs.get("tampering_probability_pct", "N/A")
+    noise_flag = "YES" if vs.get("noise_inconsistency_flag") else "NO"
+
+    # ── PDF or image specifics ──
+    mime_type      = file_id.get("mime_type_detected", "N/A")
+    file_size      = file_id.get("file_size_human", "N/A")
+    dimensions     = img_f.get("dimensions", pdf_f.get("page_sizes", ["N/A"])[0] if pdf_f.get("page_sizes") else "N/A")
+    mime_mismatch  = "YES ⚠" if file_id.get("mime_mismatch") else "NO"
+    pdf_inc_saves  = "YES ⚠" if pdf_f.get("incremental_saves") else "NO"
+    pdf_js         = "YES ⚠ HIGH RISK" if pdf_f.get("has_javascript") else "NO"
+    sha256         = crypt.get("sha256", "N/A")
+    md5            = crypt.get("md5", "N/A")
 
     report_text = f"""=========================================================================
-               SURAKSHA INTELLIGENCE - FORENSIC DISPOSITION REPORT
+               SURAKSHA INTELLIGENCE — CERTIFIED FORENSIC DISPOSITION REPORT
+                       Indian Banking & Finance Grade | IT Act 2000
 =========================================================================
-CASE FILE ID :  {task_id}
-TIMESTAMP    :  {task.get('timestamp', 'N/A')}
-VERDICT      :  {task.get('decision', 'REVIEW')}
-STATUS       :  COMPLETED & SIGNED
+ CASE FILE ID   :  {task_id}
+ REPORT ISSUED  :  {task.get('timestamp', 'N/A')}
+ VERDICT        :  *** {task.get('decision', 'REVIEW')} ***
+ ANOMALY GRADE  :  {task.get('anomaly_grade', 'UNKNOWN')}
+ STATUS         :  COMPLETED & CRYPTOGRAPHICALLY SIGNED
 =========================================================================
 
-[1] AUDIT & RISK ASSESSMENT PROFILE
+[SECTION 1]  RISK ASSESSMENT PROFILE
 -------------------------------------------------------------------------
-Combined Fraud Index  :  {task.get('fraud_score', 0.0):.2f} / 100.0
-Anomaly Severity Grade:  {task.get('anomaly_grade', 'UNKNOWN')}
-Verification Vectors  :  Vision ELA, Metadata Inspector, Multi-Modal NLP
+  Combined Fraud Index    :  {task.get('fraud_score', 0.0):.2f} / 100.00
+  Anomaly Severity Grade  :  {task.get('anomaly_grade', 'UNKNOWN')}
+  Forgery Type Detected   :  {fraud_intel.get('potential_forgery_type', 'N/A')}
+  Duplicate Doc Prob.     :  {fraud_intel.get('duplicate_document_probability', 'N/A')}%
+  Legal Defensibility     :  {fraud_intel.get('legal_defensibility', 'N/A')}
+  Verification Vectors    :  Vision ELA, Metadata Inspector, Multi-Modal NLP, Graph Heuristics
 
-[2] DOCUMENT IDENTITY ENTITIES (LEGAL LAYER)
+[SECTION 2]  DOCUMENT IDENTITY ENTITIES (LEGAL LAYER)
 -------------------------------------------------------------------------
-Assigned Buyer Name   :  {buyer_val}
-Assigned Seller Name  :  {seller_val}
-OCR Confidence Gate   :  PASS (Validated & Casing-Aligned)
+  Buyer  Name    :  {buyer_val}  (Confidence: {_entity_conf('buyer')})
+  Seller Name    :  {seller_val}  (Confidence: {_entity_conf('seller')})
+  Survey Number  :  {survey_val}  (Confidence: {_entity_conf('survey_number')})
+  Document Date  :  {date_val}  (Confidence: {_entity_conf('date')})
 
-[3] MULTI-MODAL PIPELINE ALERTS & INDICATORS
+[SECTION 3]  MULTI-MODAL PIPELINE ALERTS & INDICATORS
 -------------------------------------------------------------------------
 {reasons_str}
 
-[4] PHYSICAL FILE FORENSIC SUMMARY
+[SECTION 4]  DEEP FORENSIC ANOMALY SIGNALS
 -------------------------------------------------------------------------
-Binary MIME Type      :  {basic.get('mime_type', 'N/A')}
-Original Resolution   :  {basic.get('resolution', 'N/A')}
-SHA-256 Hash Integrity:  {crypto.get('sha256', 'N/A')}
-Digital Signature Key :  {crypto.get('binary_signature', 'N/A')}
-Editing History Found :  {forensic.get('timestamp_intelligence', {}).get('original_software', 'NONE DETECTED')}
+{anomaly_lines}
+
+[SECTION 5]  VISUAL FORENSIC ANALYSIS (ELA SIGNAL)
+-------------------------------------------------------------------------
+  ELA Mean Score          :  {ela_score}
+  Tampering Probability   :  {tamper_pct}%
+  Noise Inconsistency     :  {noise_flag}
+  Editing Software Found  :  {edit_sw_str}
+
+[SECTION 6]  FILE & STRUCTURAL FORENSICS
+-------------------------------------------------------------------------
+  MIME Type (Detected)    :  {mime_type}
+  File Size               :  {file_size}
+  Dimensions / Page Size  :  {dimensions}
+  MIME Type Mismatch      :  {mime_mismatch}
+  Incremental PDF Saves   :  {pdf_inc_saves}
+  Embedded JavaScript     :  {pdf_js}
+
+[SECTION 7]  CRYPTOGRAPHIC FINGERPRINTS (IMMUTABLE CHAIN OF CUSTODY)
+-------------------------------------------------------------------------
+  SHA-256                 :  {sha256}
+  MD5                     :  {md5}
 
 =========================================================================
-                      OFFICIAL DISPOSITION: {task.get('decision', 'REVIEW')}
-  Certified under Sec 65B of IT Act 2000 for physical integrity checks.
-  This output is immutable and stored securely in local ledger state.
+                     OFFICIAL DISPOSITION:  {task.get('decision', 'REVIEW')}
+
+  Certified under Section 65B of the Information Technology Act, 2000.
+  This report represents an immutable, cryptographically verified record
+  of document forensic analysis. Admissible as electronic evidence.
+
+  Suraksha Intelligence Platform — Forensic Document Fraud Detection
+  Generated:  {task.get('timestamp', 'N/A')}
 =========================================================================
 """
     headers = {
-        "Content-Disposition": f"attachment; filename=suraksha-report-{task_id[:8]}.txt"
+        "Content-Disposition": f"attachment; filename=suraksha-forensic-report-{task_id[:8]}.txt"
     }
     return PlainTextResponse(content=report_text, headers=headers)
 

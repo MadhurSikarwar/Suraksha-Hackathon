@@ -24,18 +24,25 @@ def error_level_analysis(image_path: str, task_id: str, quality=90):
         orig_arr = np.array(original)
         recomp_arr = np.array(recompressed)
 
+        # Compute per-pixel absolute difference across RGB channels
         diff_arr = np.abs(orig_arr.astype(np.int16) - recomp_arr.astype(np.int16))
 
+        # Raw anomaly score is the mean of the actual pixel diff (not normalized)
+        # This gives a meaningful signal: genuine images typically score < 8,
+        # heavily edited ones score > 15.
+        mean_anomaly = float(np.mean(diff_arr))
+
+        # Normalize diff for visualization: scale to 0-255 range
         max_diff = np.max(diff_arr)
         if max_diff == 0:
             max_diff = 1  # prevent division by zero
+        ela_normalized = (diff_arr / max_diff * 255.0).astype(np.uint8)
 
-        ela_arr = (diff_arr / max_diff * 255.0).astype(np.uint8)
-        mean_anomaly = float(np.mean(ela_arr))
+        # applyColorMap requires a single-channel (grayscale) image — convert first
+        ela_gray = np.mean(ela_normalized, axis=2).astype(np.uint8)
 
-        # Generate heatmap overlay
-        heatmap_img = cv2.applyColorMap(ela_arr, cv2.COLORMAP_JET)
-        # BUGFIX: Was cv2.COLORRGB2BGR (invalid constant). Correct is cv2.COLOR_RGB2BGR
+        # Generate heatmap overlay using single-channel gray
+        heatmap_img = cv2.applyColorMap(ela_gray, cv2.COLORMAP_JET)
         orig_cv = cv2.cvtColor(orig_arr, cv2.COLOR_RGB2BGR)
         overlay = cv2.addWeighted(orig_cv, 0.4, heatmap_img, 0.6, 0)
 
@@ -44,7 +51,8 @@ def error_level_analysis(image_path: str, task_id: str, quality=90):
         heatmap_path = os.path.join("static/heatmaps", heatmap_filename)
         cv2.imwrite(heatmap_path, overlay)
 
-        is_suspicious = mean_anomaly > 15.0
+        # Threshold: raw per-pixel mean diff > 12 is suspicious (slightly more sensitive)
+        is_suspicious = mean_anomaly > 12.0
 
         return {
             "is_suspicious": is_suspicious,

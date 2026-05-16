@@ -1,6 +1,7 @@
 import fitz
 import re
 import logging
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -27,33 +28,31 @@ def extract_text_from_pdf(file_path: str) -> str:
     return text
 
 
-def extract_text_from_image(file_path: str) -> str:
-    """Extracts text from image EXIF description (forensic search) or via OCR."""
+def extract_text_from_image(file_path: str) -> Tuple[str, str]:
+    """Extracts text from image. Returns (text, source) where source indicates quality."""
     try:
         img = Image.open(file_path)
-        
-        # 1. Forensic Layer: Query EXIF Metadata
-        # Check standard EXIF 'ImageDescription' (tag 270) which stores embedded OCR layers.
-        # This allows dynamic, real text recovery directly from the file byte headers.
+
+        # 1. Forensic Layer: Query EXIF Metadata (tag 270 = ImageDescription)
         exif = img.getexif()
         if exif and 270 in exif:
             desc_text = exif.get(270)
             if isinstance(desc_text, str) and desc_text.strip():
                 img.close()
                 logger.info("Recovered text layer directly from EXIF metadata header (270).")
-                return desc_text
+                return desc_text, "exif"
 
         # 2. Fallback Layer: Active Tesseract OCR (if installed)
         if not TESSERACT_AVAILABLE:
             img.close()
-            return ""
-            
+            return "", "none"
+
         text = pytesseract.image_to_string(img)
         img.close()
-        return text
+        return text, "tesseract"
     except Exception as e:
         logger.error(f"Image text extraction failed: {e}")
-        return ""
+        return "", "none"
 
 
 def extract_legal_entities(file_path: str) -> dict:
@@ -64,12 +63,13 @@ def extract_legal_entities(file_path: str) -> dict:
     If no text is extractable, absolutely nothing is returned or fabricated.
     """
     ext = file_path.lower().rsplit('.', 1)[-1]
+    text_source = "pdf"  # Track where text came from for confidence calibration
 
     if ext == 'pdf':
         text = extract_text_from_pdf(file_path)
+        text_source = "pdf"
     else:
-        # Extract actual text from image. No hardcoding.
-        text = extract_text_from_image(file_path)
+        text, text_source = extract_text_from_image(file_path)
 
     results = {
         "extracted_entities": {},
@@ -133,6 +133,22 @@ def extract_legal_entities(file_path: str) -> dict:
             
         return "Unknown"
 
+    # --- Confidence calibration based on text source ---
+    # EXIF-extracted text has lower inherent reliability (it's an embedded label,
+    # not actual OCR of visible document text). PDF native text is most reliable.
+    # Short text (< 50 chars) also reduces confidence — likely partial/truncated.
+    text_len = len(text.strip())
+    if text_source == "pdf" and text_len > 100:
+        base_conf_high, base_conf_low = 0.95, 0.65
+    elif text_source == "tesseract" and text_len > 100:
+        base_conf_high, base_conf_low = 0.88, 0.55
+    elif text_source == "exif":
+        # EXIF is a metadata field, not real OCR — lower trust
+        base_conf_high, base_conf_low = 0.72, 0.40
+    else:
+        # Short or unknown source
+        base_conf_high, base_conf_low = 0.60, 0.35
+
     # --- Robust Extraction & Validation Wrapper ---
     # Generates deterministic confidence scores and validation status to prevent hallucinations.
     def validate_entity(val: str, conf_high: float = 0.95, conf_low: float = 0.45) -> dict:
@@ -179,10 +195,10 @@ def extract_legal_entities(file_path: str) -> dict:
     raw_seller = extract_person("Seller", text)
 
     results["extracted_entities"] = {
-        "survey_number": validate_entity(raw_survey, conf_high=0.98),
-        "date": validate_entity(raw_date, conf_high=0.95),
-        "buyer": validate_entity(raw_buyer, conf_high=0.92),
-        "seller": validate_entity(raw_seller, conf_high=0.92),
+        "survey_number": validate_entity(raw_survey, conf_high=base_conf_high, conf_low=base_conf_low),
+        "date": validate_entity(raw_date, conf_high=base_conf_high, conf_low=base_conf_low),
+        "buyer": validate_entity(raw_buyer, conf_high=base_conf_high, conf_low=base_conf_low),
+        "seller": validate_entity(raw_seller, conf_high=base_conf_high, conf_low=base_conf_low),
     }
 
     # --- Anomaly Detection ---

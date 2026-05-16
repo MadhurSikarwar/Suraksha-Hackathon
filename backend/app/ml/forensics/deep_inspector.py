@@ -318,12 +318,17 @@ def extract_pdf_forensics(file_path: str) -> Dict[str, Any]:
         # Check for JavaScript or embedded attachments
         has_javascript = False
         has_attachments = False
+        pdf_encrypted = False
         try:
             has_javascript = bool(doc.get_js())
         except Exception:
             pass
         try:
             has_attachments = doc.embfile_count() > 0
+        except Exception:
+            pass
+        try:
+            pdf_encrypted = doc.is_encrypted
         except Exception:
             pass
 
@@ -360,7 +365,7 @@ def extract_pdf_forensics(file_path: str) -> Dict[str, Any]:
             "eof_markers_found": eof_count,
             "has_javascript": has_javascript,
             "has_attachments": has_attachments,
-            "pdf_encrypted": doc.is_encrypted if hasattr(doc, "is_encrypted") else False,
+            "pdf_encrypted": pdf_encrypted,
         }
     except Exception as e:
         logger.error(f"PDF forensics failed: {e}")

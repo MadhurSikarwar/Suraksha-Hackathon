@@ -123,10 +123,15 @@ function App() {
             setAnalysisResult(statusRes.data);
 
             // Step 3: Fetch Graph Data (non-blocking)
-            const seller = statusRes.data.extracted_entities?.seller;
-            if (seller && seller !== 'Unknown') {
+            // Entities are now objects {value, confidence, status} — extract the string value
+            const entityObj = statusRes.data.extracted_entities?.seller;
+            const sellerName = typeof entityObj === 'object' && entityObj !== null
+              ? entityObj.value
+              : entityObj;
+
+            if (sellerName && sellerName !== 'Unknown' && sellerName !== 'Not Detected') {
               try {
-                const graphRes = await axios.get(`http://localhost:8000/api/v1/graph/network/seller/${encodeURIComponent(seller)}`);
+                const graphRes = await axios.get(`http://localhost:8000/api/v1/graph/network/seller/${encodeURIComponent(sellerName)}`);
                 setGraphData(graphRes.data.network || { nodes: [], links: [] });
               } catch (gErr) {
                 console.warn('Graph fetch skipped:', gErr.message);
@@ -420,7 +425,11 @@ function App() {
         {/* Results Dashboard */}
         <div className="lg:col-span-2">
           {analysisResult ? (
-            <div className="glass-panel p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className={`glass-panel p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ${
+              analysisResult.decision === 'REJECT' ? 'verdict-reject' :
+              analysisResult.decision === 'REVIEW' ? 'verdict-review' :
+              'verdict-safe'
+            }`}>
               <div className="flex justify-between items-start mb-8">
                 <div>
                   <div className="flex items-center space-x-2 mb-2 print:hidden">
@@ -432,24 +441,36 @@ function App() {
                   <h2 className="text-2xl font-bold tracking-tight mb-0.5">Analysis Report</h2>
                   <p className="text-slate-400 text-xs font-medium tracking-wide">Multi-modal pipeline successfully certified.</p>
                 </div>
-                <div className="flex space-x-3 print:hidden">
-                  <button onClick={handleOverride} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center transition-colors">
-                    <Edit3 className="w-3 h-3 mr-1.5" /> Officer Override
-                  </button>
-                  <button onClick={handlePrint} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center transition-colors">
-                    <Printer className="w-3 h-3 mr-1.5" /> Print
-                  </button>
-                  <button onClick={handleDownloadReport} className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded text-xs font-bold text-blue-400 flex items-center transition-colors">
-                    <Download className="w-3 h-3 mr-1.5" /> Export Report
-                  </button>
-                </div>
-                <div className={`px-4 py-2 rounded-full border flex items-center font-bold tracking-widest ${
-                  analysisResult.decision === 'REJECT' 
-                    ? 'bg-red-500/20 border-red-500/50 text-red-400 print:text-red-600 print:border-red-600'
-                    : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 print:text-emerald-600 print:border-emerald-600'
-                }`}>
-                  {analysisResult.decision === 'REJECT' ? <AlertTriangle className="w-5 h-5 mr-2" /> : <CheckCircle className="w-5 h-5 mr-2" />}
-                  {analysisResult.decision}
+                
+                {/* Right side: action buttons + verdict badge */}
+                <div className="flex flex-col items-end gap-3">
+                  {/* Verdict Badge */}
+                  <div className={`px-4 py-2 rounded-full border flex items-center font-bold tracking-widest text-sm ${
+                    analysisResult.decision === 'REJECT'
+                      ? 'bg-red-500/20 border-red-500/50 text-red-400 print:text-red-600 print:border-red-600'
+                      : analysisResult.decision === 'REVIEW'
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 print:text-amber-600 print:border-amber-600'
+                      : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 print:text-emerald-600 print:border-emerald-600'
+                  }`}>
+                    {analysisResult.decision === 'REJECT'
+                      ? <AlertTriangle className="w-5 h-5 mr-2" />
+                      : analysisResult.decision === 'REVIEW'
+                      ? <Activity className="w-4 h-4 mr-2" />
+                      : <CheckCircle className="w-5 h-5 mr-2" />}
+                    {analysisResult.decision}
+                  </div>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2 print:hidden">
+                    <button onClick={handleOverride} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center transition-colors">
+                      <Edit3 className="w-3 h-3 mr-1.5" /> Officer Override
+                    </button>
+                    <button onClick={handlePrint} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs font-semibold flex items-center transition-colors">
+                      <Printer className="w-3 h-3 mr-1.5" /> Print
+                    </button>
+                    <button onClick={handleDownloadReport} className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 rounded text-xs font-bold text-blue-400 flex items-center transition-colors">
+                      <Download className="w-3 h-3 mr-1.5" /> Export Report
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -459,7 +480,9 @@ function App() {
                     <p className="text-slate-400 text-sm mb-2 font-medium">Fraud Probability Score</p>
                     <div className="flex items-end">
                       <span className={`text-5xl font-black tracking-tighter ${
-                        analysisResult.decision === 'REJECT' ? 'text-red-500' : 'text-emerald-500'
+                        analysisResult.decision === 'REJECT' ? 'text-red-500' :
+                        analysisResult.decision === 'REVIEW' ? 'text-amber-400' :
+                        'text-emerald-500'
                       }`}>{analysisResult.fraud_score}</span>
                       <span className="text-slate-500 ml-1 mb-1">/ 100</span>
                     </div>
@@ -489,40 +512,57 @@ function App() {
                       const confidence = isObj ? obj.confidence : null;
 
                       let badgeStyles = "bg-slate-700/20 text-slate-400 border-slate-700/50";
+                      let barColor = "bg-slate-600";
                       if (status === "Verified") {
                         badgeStyles = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                        barColor = "bg-emerald-500";
                       } else if (status === "Low Confidence") {
                         badgeStyles = "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                        barColor = "bg-amber-500";
                       } else if (status === "Not Detected") {
                         badgeStyles = "bg-red-500/10 text-red-400 border-red-500/30";
+                        barColor = "bg-red-500";
                       }
 
+                      const confPct = confidence ? Math.round(confidence * 100) : 0;
+                      const labelName = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
                       return (
-                        <div key={k} className="flex justify-between items-start gap-4 border-b border-slate-800/80 pb-2.5 last:border-0 last:pb-0">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block mb-0.5 capitalize">
-                              {k.replace('_', ' ')}
-                            </span>
-                            <span className="text-sm font-bold text-slate-100 truncate block" title={String(val)}>
-                              {val}
-                            </span>
-                          </div>
-                          
-                          <div className="flex flex-col items-end shrink-0 text-right pt-0.5">
-                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wide ${badgeStyles}`}>
-                              {status}
-                            </span>
-                            {isObj && confidence > 0 && (
-                              <span className="text-[9px] text-slate-500 font-mono mt-0.5">
-                                {(confidence * 100).toFixed(0)}% Conf
+                        <div key={k} className="border-b border-slate-800/80 pb-2.5 last:border-0 last:pb-0">
+                          <div className="flex justify-between items-start gap-4 mb-1">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block mb-0.5">
+                                {labelName}
                               </span>
-                            )}
+                              <span className="text-sm font-bold text-slate-100 truncate block" title={String(val)}>
+                                {val}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-end shrink-0 text-right pt-0.5">
+                              <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase tracking-wide ${badgeStyles}`}>
+                                {status}
+                              </span>
+                              {isObj && confidence > 0 && (
+                                <span className="text-[9px] text-slate-500 font-mono mt-0.5">
+                                  {confPct}% Conf
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          {isObj && confidence > 0 && (
+                            <div className="h-0.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                              <div
+                                className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                                style={{ width: `${confPct}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
+
               </div>
 
               {/* Tabs */}
@@ -596,8 +636,10 @@ function App() {
                     <ul className="space-y-3">
                       {analysisResult.reasons.map((reason, idx) => (
                         <li key={idx} className="flex items-start bg-slate-800/50 border border-slate-700/50 p-4 rounded-lg text-sm text-slate-300 shadow-sm">
-                          <div className={`min-w-3 h-3 mt-1 mr-4 rounded-full ${
-                            reason.includes('detected') || reason.includes('mismatch') || reason.includes('high-risk') ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                          <div className={`min-w-3 h-3 mt-1 mr-4 rounded-full flex-shrink-0 ${
+                            reason.includes('⚠') || reason.includes('detected') || reason.includes('mismatch') || reason.includes('high-risk') || reason.includes('Suspicious') || reason.includes('ALERT')
+                              ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'
+                              : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
                           }`} />
                           <span className="leading-relaxed">{reason}</span>
                         </li>
